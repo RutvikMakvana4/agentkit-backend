@@ -1,0 +1,29 @@
+{
+  "name": "express-app",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "main": "dist/server.js",
+  "scripts": {
+    "start": "node dist/server.js",
+    "start:dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "express": "latest",
+    "dotenv": "latest",
+    "cors": "latest",
+    "helmet": "latest",
+    "morgan": "latest",
+    "zod": "latest"
+  },
+  "devDependencies": {
+    "@types/express": "latest",
+    "@types/node": "latest",
+    "@types/cors": "latest",
+    "@types/morgan": "latest",
+    "tsx": "latest",
+    "typescript": "latest"
+  }
+}
