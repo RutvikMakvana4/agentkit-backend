@@ -7,16 +7,24 @@
   "scripts": {
     "start": "node dist/server.js",
     "start:dev": "tsx watch src/server.ts",
-    "build": "tsc",
-    "type-check": "tsc --noEmit"
+    "build": "npm run db:generate && tsc",
+    "type-check": "tsc --noEmit",
+    "db:generate": "prisma generate",
+    "db:push": "prisma db push",
+    "db:migrate": "prisma migrate dev",
+    "db:seed": "prisma db seed",
+    "db:studio": "prisma studio"
   },
   "dependencies": {
+    "@prisma/adapter-pg": "^7.9.0",
+    "@prisma/client": "^7.9.0",
     "cors": "latest",
     "dotenv": "latest",
     "express": "latest",
     "helmet": "latest",
     "morgan": "latest",
     "openai": "^6.49.0",
+    "pg": "^8.22.0",
     "zod": "latest"
   },
   "devDependencies": {
@@ -24,6 +32,8 @@
     "@types/express": "latest",
     "@types/morgan": "latest",
     "@types/node": "latest",
+    "@types/pg": "^8.20.0",
+    "prisma": "^7.9.0",
     "tsx": "latest",
     "typescript": "latest"
   }

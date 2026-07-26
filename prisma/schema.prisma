@@ -1,0 +1,37 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum AgentStatus {
+  active
+  inactive
+}
+
+// Scoped intentionally to just what agent.service.ts needs today.
+// Execution / ApiKey / Conversation / Tool models get their own schema
+// additions (and their own migrations) when we build those features.
+model Agent {
+  id           String      @id @default(cuid())
+  name         String
+  description  String      @default("")
+  instructions String
+  model        String      @default("gpt-4.1-mini")
+  temperature  Float       @default(0.3)
+  status       AgentStatus @default(active)
+
+  // Tools are registered in code (src/tools), not user-created rows, so
+  // we store the agent's enabled tools as JSON rather than a relational
+  // join table — avoids having to keep a Tool table in sync with the
+  // code-based tool registry for something that isn't user-editable yet.
+  tools Json @default("[]")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("agents")
+}

@@ -1,20 +1,6 @@
-import { randomUUID } from 'node:crypto';
+import { prisma } from '../config/prisma.js';
+import type { Agent as PrismaAgent } from '../generated/prisma/client.js';
 import type { Agent, AgentStatus, AgentTool } from '../types/agent.types.js';
-
-const agents: Agent[] = [
-  {
-    id: 'agent_customer_support',
-    name: 'Customer Support Agent',
-    description: 'Handles order status and support ticket questions',
-    instructions: 'You are a helpful customer support agent.',
-    model: 'gpt-4.1-mini',
-    temperature: 0.3,
-    status: 'active',
-    tools: [{ toolId: 'tool_getOrder', toolName: 'getOrder' }],
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
-  },
-];
 
 export interface CreateAgentInput {
   name: string;
@@ -28,43 +14,77 @@ export interface CreateAgentInput {
 
 export type UpdateAgentInput = Partial<CreateAgentInput>;
 
-export function listAgents(): Agent[] {
-  return agents;
-}
-
-export function getAgentById(id: string): Agent | undefined {
-  return agents.find((a) => a.id === id);
-}
-
-export function createAgent(input: CreateAgentInput): Agent {
-  const now = new Date().toISOString();
-  const agent: Agent = {
-    id: `agent_${randomUUID()}`,
-    status: 'active',
-    ...input,
-    createdAt: now,
-    updatedAt: now,
+function toAgent(row: PrismaAgent): Agent {
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    instructions: row.instructions,
+    model: row.model,
+    temperature: row.temperature,
+    status: row.status as AgentStatus,
+    tools: (row.tools as unknown as AgentTool[]) ?? [],
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
   };
-  agents.unshift(agent);
-  return agent;
 }
 
-export function updateAgent(id: string, patch: UpdateAgentInput): Agent | undefined {
-  const index = agents.findIndex((a) => a.id === id);
-  if (index === -1) return undefined;
-
-  const updated: Agent = {
-    ...agents[index],
-    ...patch,
-    updatedAt: new Date().toISOString(),
-  };
-  agents[index] = updated;
-  return updated;
+export async function listAgents(): Promise<Agent[]> {
+  const rows = await prisma.agent.findMany({ orderBy: { createdAt: 'desc' } });
+  return rows.map(toAgent);
 }
 
-export function deleteAgent(id: string): boolean {
-  const index = agents.findIndex((a) => a.id === id);
-  if (index === -1) return false;
-  agents.splice(index, 1);
-  return true;
+export async function getAgentById(id: string): Promise<Agent | undefined> {
+  const row = await prisma.agent.findUnique({ where: { id } });
+  return row ? toAgent(row) : undefined;
+}
+
+export async function createAgent(input: CreateAgentInput): Promise<Agent> {
+  const row = await prisma.agent.create({
+    data: {
+      name: input.name,
+      description: input.description,
+      instructions: input.instructions,
+      model: input.model,
+      temperature: input.temperature,
+      status: input.status ?? 'active',
+      tools: input.tools as unknown as object,
+    },
+  });
+  return toAgent(row);
+}
+
+export async function updateAgent(
+  id: string,
+  patch: UpdateAgentInput,
+): Promise<Agent | undefined> {
+  try {
+    const row = await prisma.agent.update({
+      where: { id },
+      data: {
+        ...(patch.name !== undefined ? { name: patch.name } : {}),
+        ...(patch.description !== undefined ? { description: patch.description } : {}),
+        ...(patch.instructions !== undefined ? { instructions: patch.instructions } : {}),
+        ...(patch.model !== undefined ? { model: patch.model } : {}),
+        ...(patch.temperature !== undefined ? { temperature: patch.temperature } : {}),
+        ...(patch.status !== undefined ? { status: patch.status } : {}),
+        ...(patch.tools !== undefined ? { tools: patch.tools as unknown as object } : {}),
+      },
+    });
+    return toAgent(row);
+  } catch {
+    // Prisma throws P2025 when the record doesn't exist — surface as undefined,
+    // same contract the in-memory version had, so the controller's 404 logic
+    // doesn't need to change.
+    return undefined;
+  }
+}
+
+export async function deleteAgent(id: string): Promise<boolean> {
+  try {
+    await prisma.agent.delete({ where: { id } });
+    return true;
+  } catch {
+    return false;
+  }
 }

@@ -9,65 +9,50 @@ import {
   chatSchema,
 } from '../validators/agent.validator.js';
 
-export function listAgents(_req: Request, res: Response) {
-  res
-    .status(200)
-    .json(new ApiResponse(200, 'Agents fetched', agentService.listAgents()));
+export async function listAgents(_req: Request, res: Response) {
+  const agents = await agentService.listAgents();
+  res.status(200).json(new ApiResponse(200, 'Agents fetched', agents));
 }
 
-export function getAgent(req: Request, res: Response) {
-  const agent = agentService.getAgentById(req.params.id as string);
-  if (!agent)
-    throw ApiError.notFound(`Agent "${req.params.id as string}" not found`);
+export async function getAgent(req: Request, res: Response) {
+  const agent = await agentService.getAgentById(req.params.id as string);
+  if (!agent) throw ApiError.notFound(`Agent "${req.params.id as string}" not found`);
   res.status(200).json(new ApiResponse(200, 'Agent fetched', agent));
 }
 
-export function createAgent(req: Request, res: Response) {
+export async function createAgent(req: Request, res: Response) {
   const parsed = createAgentSchema.safeParse(req.body);
   if (!parsed.success) {
-    throw ApiError.badRequest(
-      parsed.error.issues.map((i) => i.message).join(', '),
-    );
+    throw ApiError.badRequest(parsed.error.issues.map((i) => i.message).join(', '));
   }
-  const agent = agentService.createAgent(parsed.data);
+  const agent = await agentService.createAgent(parsed.data);
   res.status(201).json(new ApiResponse(201, 'Agent created', agent));
 }
 
-export function updateAgent(req: Request, res: Response) {
+export async function updateAgent(req: Request, res: Response) {
   const parsed = updateAgentSchema.safeParse(req.body);
   if (!parsed.success) {
-    throw ApiError.badRequest(
-      parsed.error.issues.map((i) => i.message).join(', '),
-    );
+    throw ApiError.badRequest(parsed.error.issues.map((i) => i.message).join(', '));
   }
-  const agent = agentService.updateAgent(req.params.id as string, parsed.data);
-  if (!agent)
-    throw ApiError.notFound(`Agent "${req.params.id as string}" not found`);
+  const agent = await agentService.updateAgent(req.params.id as string, parsed.data);
+  if (!agent) throw ApiError.notFound(`Agent "${req.params.id as string}" not found`);
   res.status(200).json(new ApiResponse(200, 'Agent updated', agent));
 }
 
-export function deleteAgent(req: Request, res: Response) {
-  const deleted = agentService.deleteAgent(req.params.id as string);
-  if (!deleted)
-    throw ApiError.notFound(`Agent "${req.params.id as string}" not found`);
-  res
-    .status(200)
-    .json(
-      new ApiResponse(200, 'Agent deleted', { id: req.params.id as string }),
-    );
+export async function deleteAgent(req: Request, res: Response) {
+  const deleted = await agentService.deleteAgent(req.params.id as string);
+  if (!deleted) throw ApiError.notFound(`Agent "${req.params.id as string}" not found`);
+  res.status(200).json(new ApiResponse(200, 'Agent deleted', { id: req.params.id }));
 }
 
 export async function chatWithAgent(req: Request, res: Response) {
   const parsed = chatSchema.safeParse(req.body);
   if (!parsed.success) {
-    throw ApiError.badRequest(
-      parsed.error.issues.map((i) => i.message).join(', '),
-    );
+    throw ApiError.badRequest(parsed.error.issues.map((i) => i.message).join(', '));
   }
 
-  const agent = agentService.getAgentById(req.params.id as string);
-  if (!agent)
-    throw ApiError.notFound(`Agent "${req.params.id as string}" not found`);
+  const agent = await agentService.getAgentById(req.params.id as string);
+  if (!agent) throw ApiError.notFound(`Agent "${req.params.id as string}" not found`);
 
   const result = await runAgent(agent, parsed.data.message);
   res.status(200).json(new ApiResponse(200, 'Agent run completed', result));

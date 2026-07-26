@@ -1,6 +1,7 @@
 import app from './app.js';
 import { env } from './config/env.js';
 import { logger } from './utils/logger.js';
+import { prisma } from './config/prisma.js';
 
 const server = app.listen(env.PORT, () => {
   logger.info(`🚀 Server running on http://localhost:${env.PORT}`, {
@@ -11,7 +12,9 @@ const server = app.listen(env.PORT, () => {
 function shutdown(signal: string) {
   logger.info(`${signal} received. Shutting down gracefully...`);
 
-  server.close((err) => {
+  server.close(async (err) => {
+    await prisma.$disconnect();
+
     if (err) {
       logger.error('Error during shutdown', { error: err.message });
       process.exit(1);
