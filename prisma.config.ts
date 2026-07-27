@@ -8,10 +8,12 @@ export default defineConfig({
     seed: 'tsx prisma/seed.ts',
   },
   datasource: {
-    // Migrations need a direct (unpooled) connection — Supabase's pgbouncer
-    // pooled connection doesn't support the session-level features
-    // `prisma migrate` relies on. Runtime app queries use DATABASE_URL
-    // (pooled) instead, configured separately in src/config/prisma.ts.
-    url: env('DIRECT_URL'),
+    // Pooled (Supabase Supavisor, port 6543) — same connection the running
+    // app uses via the adapter in src/config/prisma.ts.
+    url: env('DATABASE_URL'),
+    // Direct (port 5432) — `prisma migrate`/`db push` use this instead of
+    // `url` automatically, since the pooled connection doesn't support the
+    // session-level features migrations rely on.
+    directUrl: env('DIRECT_URL'),
   },
 });

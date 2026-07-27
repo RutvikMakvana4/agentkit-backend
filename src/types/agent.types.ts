@@ -47,8 +47,37 @@ export interface ToolCallTrace {
 }
 
 export interface AgentRunResult {
+  status: 'success' | 'error';
   reply: string;
+  error?: string;
   toolCalls: ToolCallTrace[];
   latencyMs: number;
+  tokens: number;
   iterations: number;
+}
+
+export type ExecutionStatus = 'running' | 'success' | 'error';
+
+export interface Execution {
+  id: string;
+  agentId: string;
+  agentName: string;
+  status: ExecutionStatus;
+  input: string;
+  output?: string;
+  error?: string;
+  latencyMs: number;
+  tokens: number;
+  toolCalls: ToolCallTrace[];
+  createdAt: string;
+}
+
+export interface ApiKey {
+  id: string;
+  agentId: string;
+  agentName: string;
+  label: string;
+  keyPreview: string;
+  createdAt: string;
+  lastUsedAt?: string;
 }

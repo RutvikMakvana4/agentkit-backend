@@ -1,5 +1,5 @@
 import { prisma } from '../config/prisma.js';
-import type { Agent as PrismaAgent } from '../generated/prisma/client.js';
+import type { AgentModel } from '../generated/prisma/models/Agent.js';
 import type { Agent, AgentStatus, AgentTool } from '../types/agent.types.js';
 
 export interface CreateAgentInput {
@@ -14,7 +14,7 @@ export interface CreateAgentInput {
 
 export type UpdateAgentInput = Partial<CreateAgentInput>;
 
-function toAgent(row: PrismaAgent): Agent {
+function toAgent(row: AgentModel): Agent {
   return {
     id: row.id,
     name: row.name,
