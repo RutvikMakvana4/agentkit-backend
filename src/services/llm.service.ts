@@ -9,6 +9,7 @@ export interface LlmCallInput {
   temperature: number;
   messages: ChatCompletionMessageParam[];
   tools?: ChatCompletionTool[];
+  signal?: AbortSignal;
 }
 
 export interface LlmCallResult {
@@ -26,12 +27,15 @@ export interface LlmCallResult {
 }
 
 export async function callLlm(input: LlmCallInput): Promise<LlmCallResult> {
-  const completion = await client.chat.completions.create({
-    model: input.model,
-    temperature: input.temperature,
-    messages: input.messages,
-    ...(input.tools && input.tools.length > 0 ? { tools: input.tools } : {}),
-  });
+  const completion = await client.chat.completions.create(
+    {
+      model: input.model,
+      temperature: input.temperature,
+      messages: input.messages,
+      ...(input.tools && input.tools.length > 0 ? { tools: input.tools } : {}),
+    },
+    { signal: input.signal },
+  );
 
   const choice = completion.choices[0];
   const message = choice?.message;

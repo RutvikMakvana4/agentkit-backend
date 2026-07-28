@@ -46,6 +46,16 @@ export interface ToolCallTrace {
   error?: string;
 }
 
+export type AgentEvent =
+  | { type: 'agent_started' }
+  | { type: 'llm_started' }
+  | { type: 'tool_started'; name: string; arguments: Record<string, unknown> }
+  | { type: 'tool_completed'; name: string; durationMs: number; result: unknown }
+  | { type: 'message_delta'; delta: string }
+  | { type: 'llm_completed' }
+  | { type: 'agent_completed'; latencyMs: number; tokens: number; toolCallCount: number }
+  | { type: 'error'; message: string };
+
 export interface AgentRunResult {
   status: 'success' | 'error';
   reply: string;

@@ -2,7 +2,7 @@ import type { ChatCompletionMessageParam } from 'openai/resources/chat/completio
 import { env } from '../config/env.js';
 import { callLlm } from './llm.service.js';
 import { toolRegistry } from '../tools/index.js';
-import type { Agent, AgentRunResult, ToolCallTrace } from '../types/agent.types.js';
+import type { Agent, AgentEvent, AgentRunResult, ToolCallTrace } from '../types/agent.types.js';
 
 const MAX_AGENT_ITERATIONS = env.MAX_AGENT_ITERATIONS;
 
@@ -15,7 +15,19 @@ function withTimeout<T>(promise: Promise<T>, ms: number, toolName: string): Prom
   ]);
 }
 
-export async function runAgent(agent: Agent, userMessage: string): Promise<AgentRunResult> {
+export interface RunAgentOptions {
+  /** Called for every step of the loop — used to stream progress over SSE. */
+  onEvent?: (event: AgentEvent) => void;
+  /** Lets an SSE client disconnect actually cancel the in-flight OpenAI call. */
+  signal?: AbortSignal;
+}
+
+export async function runAgent(
+  agent: Agent,
+  userMessage: string,
+  options: RunAgentOptions = {},
+): Promise<AgentRunResult> {
+  const emit = options.onEvent ?? (() => {});
   const start = Date.now();
   const toolNames = agent.tools.map((t) => t.toolName);
   const openAiTools = toolRegistry.toOpenAITools(toolNames);
@@ -29,8 +41,24 @@ export async function runAgent(agent: Agent, userMessage: string): Promise<Agent
   let totalTokens = 0;
   let iterations = 0;
 
+  emit({ type: 'agent_started' });
+
   while (iterations < MAX_AGENT_ITERATIONS) {
     iterations += 1;
+
+    if (options.signal?.aborted) {
+      return {
+        status: 'error',
+        reply: '',
+        error: 'Client disconnected',
+        toolCalls: toolCallTraces,
+        latencyMs: Date.now() - start,
+        tokens: totalTokens,
+        iterations,
+      };
+    }
+
+    emit({ type: 'llm_started' });
 
     let result;
     try {
@@ -39,14 +67,15 @@ export async function runAgent(agent: Agent, userMessage: string): Promise<Agent
         temperature: agent.temperature,
         messages,
         tools: openAiTools,
+        signal: options.signal,
       });
     } catch (err) {
-      // Network/API failure talking to the LLM — return whatever trace we
-      // have so far as a failed execution, rather than throwing and losing it.
+      const message = err instanceof Error ? err.message : 'LLM request failed';
+      emit({ type: 'error', message });
       return {
         status: 'error',
         reply: '',
-        error: err instanceof Error ? err.message : 'LLM request failed',
+        error: message,
         toolCalls: toolCallTraces,
         latencyMs: Date.now() - start,
         tokens: totalTokens,
@@ -57,9 +86,30 @@ export async function runAgent(agent: Agent, userMessage: string): Promise<Agent
     totalTokens += result.usage.totalTokens;
 
     if (result.toolCalls.length === 0) {
+      const reply = result.content ?? '';
+
+      // We call OpenAI non-streaming (simpler, and matches the PRD's loop
+      // pseudocode exactly), so there's no real token-by-token stream to
+      // relay. Instead we reveal the finished reply progressively — same
+      // pacing the frontend's simulator already uses, so the playground UI
+      // doesn't need to change when this replaces it. Swap this for true
+      // OpenAI token streaming later if you want first-token latency to drop.
+      for (const word of reply.split(' ')) {
+        emit({ type: 'message_delta', delta: `${word} ` });
+        await new Promise((resolve) => setTimeout(resolve, 40));
+      }
+
+      emit({ type: 'llm_completed' });
+      emit({
+        type: 'agent_completed',
+        latencyMs: Date.now() - start,
+        tokens: totalTokens,
+        toolCallCount: toolCallTraces.length,
+      });
+
       return {
         status: 'success',
-        reply: result.content ?? '',
+        reply,
         toolCalls: toolCallTraces,
         latencyMs: Date.now() - start,
         tokens: totalTokens,
@@ -67,7 +117,6 @@ export async function runAgent(agent: Agent, userMessage: string): Promise<Agent
       };
     }
 
-    // Record the assistant's tool-call request in the conversation.
     messages.push({
       role: 'assistant',
       content: result.content,
@@ -82,7 +131,9 @@ export async function runAgent(agent: Agent, userMessage: string): Promise<Agent
     });
 
     for (const call of result.toolCalls) {
+      emit({ type: 'tool_started', name: call.name, arguments: call.arguments });
       const callStart = Date.now();
+
       try {
         const toolResult = await withTimeout(
           toolRegistry.execute(call.name, call.arguments),
@@ -99,6 +150,8 @@ export async function runAgent(agent: Agent, userMessage: string): Promise<Agent
           durationMs,
           status: 'success',
         });
+
+        emit({ type: 'tool_completed', name: call.name, durationMs, result: toolResult });
 
         messages.push({
           role: 'tool',
@@ -118,6 +171,8 @@ export async function runAgent(agent: Agent, userMessage: string): Promise<Agent
           error: errorMessage,
         });
 
+        emit({ type: 'tool_completed', name: call.name, durationMs, result: { error: errorMessage } });
+
         messages.push({
           role: 'tool',
           tool_call_id: call.id,
@@ -127,10 +182,13 @@ export async function runAgent(agent: Agent, userMessage: string): Promise<Agent
     }
   }
 
+  const message = 'Maximum agent iterations reached';
+  emit({ type: 'error', message });
+
   return {
     status: 'error',
     reply: '',
-    error: 'Maximum agent iterations reached',
+    error: message,
     toolCalls: toolCallTraces,
     latencyMs: Date.now() - start,
     tokens: totalTokens,
