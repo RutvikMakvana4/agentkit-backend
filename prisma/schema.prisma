@@ -12,6 +12,17 @@ enum AgentStatus {
   inactive
 }
 
+enum ExecutionStatus {
+  running
+  success
+  error
+}
+
+enum ToolCallStatus {
+  success
+  error
+}
+
 // Scoped intentionally to just what agent.service.ts needs today.
 // Execution / ApiKey / Conversation / Tool models get their own schema
 // additions (and their own migrations) when we build those features.
@@ -30,8 +41,67 @@ model Agent {
   // code-based tool registry for something that isn't user-editable yet.
   tools Json @default("[]")
 
+  executions Execution[]
+  apiKeys    ApiKey[]
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@map("agents")
+}
+
+model Execution {
+  id      String @id @default(cuid())
+  agentId String
+  agent   Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  status    ExecutionStatus @default(running)
+  input     String
+  output    String?
+  error     String?
+  latencyMs Int             @default(0)
+  tokens    Int             @default(0)
+
+  toolCalls ToolCall[]
+
+  createdAt DateTime @default(now())
+
+  @@index([agentId])
+  @@map("executions")
+}
+
+model ToolCall {
+  id          String    @id @default(cuid())
+  executionId String
+  execution   Execution @relation(fields: [executionId], references: [id], onDelete: Cascade)
+
+  name       String
+  arguments  Json
+  result     Json?
+  durationMs Int
+  status     ToolCallStatus @default(success)
+  error      String?
+
+  createdAt DateTime @default(now())
+
+  @@index([executionId])
+  @@map("tool_calls")
+}
+
+model ApiKey {
+  id      String @id @default(cuid())
+  agentId String
+  agent   Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  label      String
+  // SHA-256 hash of the raw key — the raw value is only ever shown once,
+  // at creation time, and is never persisted (PRD §27).
+  hashedKey  String    @unique
+  keyPreview String
+  lastUsedAt DateTime?
+
+  createdAt DateTime @default(now())
+
+  @@index([agentId])
+  @@map("api_keys")
 }

@@ -32,6 +32,11 @@ export const chatSchema = z.object({
   message: z.string().min(1, 'message is required'),
 });
 
+export const createApiKeySchema = z.object({
+  agentId: z.string().min(1, 'agentId is required'),
+  label: z.string().min(1, 'label is required'),
+});
+
 export type CreateAgentDto = z.infer<typeof createAgentSchema>;
 export type UpdateAgentDto = z.infer<typeof updateAgentSchema>;
 export type ChatDto = z.infer<typeof chatSchema>;

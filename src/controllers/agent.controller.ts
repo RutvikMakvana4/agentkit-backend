@@ -3,6 +3,7 @@ import { ApiError } from '../utils/ApiError.js';
 import { ApiResponse } from '../utils/ApiResponse.js';
 import * as agentService from '../services/agent.service.js';
 import { runAgent } from '../services/agentRunner.service.js';
+import * as executionService from '../services/execution.service.js';
 import {
   createAgentSchema,
   updateAgentSchema,
@@ -55,5 +56,11 @@ export async function chatWithAgent(req: Request, res: Response) {
   if (!agent) throw ApiError.notFound(`Agent "${req.params.id as string}" not found`);
 
   const result = await runAgent(agent, parsed.data.message);
-  res.status(200).json(new ApiResponse(200, 'Agent run completed', result));
+  const execution = await executionService.recordExecution(agent.id, parsed.data.message, result);
+
+  if (result.status === 'error') {
+    throw ApiError.internal(result.error ?? 'Agent run failed');
+  }
+
+  res.status(200).json(new ApiResponse(200, 'Agent run completed', execution));
 }

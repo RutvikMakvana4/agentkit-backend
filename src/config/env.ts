@@ -16,6 +16,12 @@ const envSchema = z.object({
   // Direct connection (port 5432) — used only by Prisma CLI for migrations,
   // configured separately in prisma.config.ts.
   DIRECT_URL: z.string().min(1, 'DIRECT_URL is required'),
+  // Extra secret mixed into API key hashes. Fine to leave default for local
+  // dev, but set a real random value in production — see .env.example.
+  API_KEY_HASH_SECRET: z.string().default('dev-only-insecure-secret'),
+  // Per-tool-call timeout (PRD §31) — prevents a hanging backend call from
+  // stalling the whole agent loop indefinitely.
+  TOOL_EXECUTION_TIMEOUT_MS: z.coerce.number().default(10_000),
 });
 
 const parsed = envSchema.safeParse(process.env);

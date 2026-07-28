@@ -8,6 +8,7 @@ import {
   deleteAgent,
   chatWithAgent,
 } from '../controllers/agent.controller.js';
+import { listExecutionsForAgent } from '../controllers/execution.controller.js';
 
 const router = Router();
 
@@ -17,5 +18,6 @@ router.get('/:id', asyncHandler(async (req, res) => getAgent(req, res)));
 router.patch('/:id', asyncHandler(async (req, res) => updateAgent(req, res)));
 router.delete('/:id', asyncHandler(async (req, res) => deleteAgent(req, res)));
 router.post('/:id/chat', asyncHandler(chatWithAgent));
+router.get('/:id/executions', asyncHandler(async (req, res) => listExecutionsForAgent(req, res)));
 
 export default router;
