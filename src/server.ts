@@ -34,11 +34,11 @@ function shutdown(signal: string) {
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 
-process.on('unhandledRejection', (reason) => {
+process.on('unhandledRejection', (reason: unknown) => {
   logger.error('Unhandled Rejection', { reason: String(reason) });
 });
 
-process.on('uncaughtException', (err) => {
+process.on('uncaughtException', (err: Error) => {
   logger.error('Uncaught Exception', { error: err.message, stack: err.stack });
   process.exit(1);
 });
