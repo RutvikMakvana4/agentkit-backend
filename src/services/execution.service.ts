@@ -1,4 +1,5 @@
 import { prisma } from '../config/prisma.js';
+import { Prisma } from '../generated/prisma/client.js';
 import type { ExecutionModel } from '../generated/prisma/models/Execution.js';
 import type { ToolCallModel } from '../generated/prisma/models/ToolCall.js';
 import type {
@@ -10,7 +11,10 @@ import type {
 
 type ExecutionWithToolCalls = ExecutionModel & { toolCalls: ToolCallModel[] };
 
-function toExecution(row: ExecutionWithToolCalls, agentName: string): Execution {
+function toExecution(
+  row: ExecutionWithToolCalls,
+  agentName: string,
+): Execution {
   return {
     id: row.id,
     agentId: row.agentId,
@@ -58,8 +62,11 @@ export async function recordExecution(
       toolCalls: {
         create: result.toolCalls.map((call) => ({
           name: call.name,
-          arguments: call.arguments as object,
-          result: (call.result ?? null) as object | null,
+          arguments: call.arguments as Prisma.InputJsonValue,
+          result:
+            call.result === null || call.result === undefined
+              ? Prisma.JsonNull
+              : (call.result as Prisma.InputJsonValue),
           durationMs: call.durationMs,
           status: call.status,
           error: call.error ?? null,
@@ -80,7 +87,9 @@ export async function listExecutions(): Promise<Execution[]> {
   return rows.map((row) => toExecution(row, row.agent.name));
 }
 
-export async function listExecutionsByAgent(agentId: string): Promise<Execution[]> {
+export async function listExecutionsByAgent(
+  agentId: string,
+): Promise<Execution[]> {
   const rows = await prisma.execution.findMany({
     where: { agentId },
     include: { toolCalls: true, agent: { select: { name: true } } },
@@ -89,7 +98,9 @@ export async function listExecutionsByAgent(agentId: string): Promise<Execution[
   return rows.map((row) => toExecution(row, row.agent.name));
 }
 
-export async function getExecutionById(id: string): Promise<Execution | undefined> {
+export async function getExecutionById(
+  id: string,
+): Promise<Execution | undefined> {
   const row = await prisma.execution.findUnique({
     where: { id },
     include: { toolCalls: true, agent: { select: { name: true } } },
