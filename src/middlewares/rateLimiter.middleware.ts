@@ -1,4 +1,4 @@
-import { rateLimit } from 'express-rate-limit';
+import { rateLimit, ipKeyGenerator } from 'express-rate-limit';
 
 export const publicApiLimiter = rateLimit({
   windowMs: 60_000,
@@ -10,7 +10,9 @@ export const publicApiLimiter = rateLimit({
     if (header?.startsWith('Bearer ')) {
       return header.slice('Bearer '.length).trim();
     }
-    return req.ip ?? 'unknown';
+    // IPv6-safe fallback — a raw req.ip would let an IPv6 client bypass the
+    // limit by requesting from different addresses in the same /56 block.
+    return ipKeyGenerator(req.ip ?? 'unknown');
   },
   message: {
     success: false,
