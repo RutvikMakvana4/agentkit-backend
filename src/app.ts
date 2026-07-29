@@ -7,6 +7,7 @@ import routes from './routes/index.js';
 import { notFound } from './middlewares/notFound.middleware.js';
 import { errorHandler } from './middlewares/errorHandler.middleware.js';
 import { registerTools } from './tools/index.js';
+import publicAgentRoutes from './routes/publicAgent.routes.js';
 
 // Register all tools once at startup — turns existing backend functions
 // into callable AI tools before any request comes in.
@@ -29,8 +30,12 @@ if (env.NODE_ENV !== 'test') {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Routes — internal dashboard API. The public, API-key-authenticated agent
+// Internal dashboard API — used by agentkit-frontend, no API key required.
 app.use('/api', routes);
+
+// Public agent API — API-key-authenticated, for calling deployed agents
+// from a developer's own application (PRD §24/§27).
+app.use('/api/v1', publicAgentRoutes);
 
 // 404 handler — must come after all routes
 app.use(notFound);

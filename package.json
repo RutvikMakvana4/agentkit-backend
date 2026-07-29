@@ -21,6 +21,7 @@
     "cors": "latest",
     "dotenv": "latest",
     "express": "latest",
+    "express-rate-limit": "^8.6.1",
     "helmet": "latest",
     "morgan": "latest",
     "openai": "^6.49.0",
