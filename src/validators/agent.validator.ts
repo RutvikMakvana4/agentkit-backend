@@ -30,6 +30,7 @@ export const updateAgentSchema = z.object(agentFields).partial();
 
 export const chatSchema = z.object({
   message: z.string().min(1, 'message is required'),
+  conversationId: z.string().optional(),
 });
 
 export const createApiKeySchema = z.object({

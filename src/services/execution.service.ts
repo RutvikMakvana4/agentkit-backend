@@ -15,6 +15,7 @@ function toExecution(row: ExecutionWithToolCalls, agentName: string): Execution 
     id: row.id,
     agentId: row.agentId,
     agentName,
+    conversationId: row.conversationId ?? undefined,
     status: row.status as ExecutionStatus,
     input: row.input,
     output: row.output ?? undefined,
@@ -40,12 +41,14 @@ export async function recordExecution(
   agentId: string,
   input: string,
   result: AgentRunResult,
+  conversationId?: string,
 ): Promise<Execution> {
   const agent = await prisma.agent.findUnique({ where: { id: agentId } });
 
   const row = await prisma.execution.create({
     data: {
       agentId,
+      conversationId: conversationId ?? null,
       status: result.status,
       input,
       output: result.reply || null,

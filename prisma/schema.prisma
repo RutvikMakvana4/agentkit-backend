@@ -23,9 +23,14 @@ enum ToolCallStatus {
   error
 }
 
+enum MessageRole {
+  user
+  assistant
+}
+
 // Scoped intentionally to just what agent.service.ts needs today.
-// Execution / ApiKey / Conversation / Tool models get their own schema
-// additions (and their own migrations) when we build those features.
+// Tool models get their own schema additions (and their own migrations)
+// when we build that feature.
 model Agent {
   id           String      @id @default(cuid())
   name         String
@@ -41,8 +46,9 @@ model Agent {
   // code-based tool registry for something that isn't user-editable yet.
   tools Json @default("[]")
 
-  executions Execution[]
-  apiKeys    ApiKey[]
+  executions    Execution[]
+  apiKeys       ApiKey[]
+  conversations Conversation[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -50,10 +56,46 @@ model Agent {
   @@map("agents")
 }
 
+model Conversation {
+  id      String @id @default(cuid())
+  agentId String
+  agent   Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  messages   Message[]
+  executions Execution[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([agentId])
+  @@map("conversations")
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  role    MessageRole
+  content String
+
+  createdAt DateTime @default(now())
+
+  @@index([conversationId])
+  @@map("messages")
+}
+
 model Execution {
   id      String @id @default(cuid())
   agentId String
   agent   Agent  @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  // Optional — set when this run happened as part of a multi-turn
+  // conversation (chatWithAgent accepts an optional conversationId).
+  // Nullable and onDelete: SetNull so deleting a conversation doesn't
+  // wipe out its execution/trace history.
+  conversationId String?
+  conversation   Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
 
   status    ExecutionStatus @default(running)
   input     String
@@ -67,6 +109,7 @@ model Execution {
   createdAt DateTime @default(now())
 
   @@index([agentId])
+  @@index([conversationId])
   @@map("executions")
 }
 

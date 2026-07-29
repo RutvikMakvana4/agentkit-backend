@@ -4,6 +4,7 @@ import { ApiResponse } from '../utils/ApiResponse.js';
 import * as agentService from '../services/agent.service.js';
 import { runAgent } from '../services/agentRunner.service.js';
 import * as executionService from '../services/execution.service.js';
+import * as conversationService from '../services/conversation.service.js';
 import type { AgentEvent } from '../types/agent.types.js';
 import {
   createAgentSchema,
@@ -56,8 +57,25 @@ export async function chatWithAgent(req: Request, res: Response) {
   const agent = await agentService.getAgentById(req.params.id as string);
   if (!agent) throw ApiError.notFound(`Agent "${req.params.id as string}" not found`);
 
-  const result = await runAgent(agent, parsed.data.message);
-  const execution = await executionService.recordExecution(agent.id, parsed.data.message, result);
+  const conversationId = await conversationService.ensureConversation(
+    agent.id,
+    parsed.data.conversationId,
+  );
+  const history = await conversationService.getConversationHistory(conversationId);
+
+  const result = await runAgent(agent, parsed.data.message, { history });
+
+  await conversationService.appendTurn(
+    conversationId,
+    parsed.data.message,
+    result.status === 'success' ? result.reply : undefined,
+  );
+  const execution = await executionService.recordExecution(
+    agent.id,
+    parsed.data.message,
+    result,
+    conversationId,
+  );
 
   if (result.status === 'error') {
     throw ApiError.internal(result.error ?? 'Agent run failed');
@@ -78,12 +96,24 @@ export async function chatWithAgentStream(req: Request, res: Response) {
   const agent = await agentService.getAgentById(req.params.id as string);
   if (!agent) throw ApiError.notFound(`Agent "${req.params.id as string}" not found`);
 
+  const conversationId = await conversationService.ensureConversation(
+    agent.id,
+    parsed.data.conversationId,
+  );
+  const history = await conversationService.getConversationHistory(conversationId);
+
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache',
     Connection: 'keep-alive',
     'X-Accel-Buffering': 'no', // disable nginx response buffering, if present
   });
+
+  // Extra frame beyond the frontend's current AgentEvent union — safe to
+  // ignore today, lets a future multi-turn playground pick up the id to
+  // send back on the next message.
+  res.write(`event: conversation_started\n`);
+  res.write(`data: ${JSON.stringify({ conversationId })}\n\n`);
 
   function send(event: AgentEvent) {
     res.write(`event: ${event.type}\n`);
@@ -94,13 +124,20 @@ export async function chatWithAgentStream(req: Request, res: Response) {
   req.on('close', () => controller.abort());
 
   const result = await runAgent(agent, parsed.data.message, {
+    history,
     onEvent: send,
     signal: controller.signal,
   });
 
+  await conversationService.appendTurn(
+    conversationId,
+    parsed.data.message,
+    result.status === 'success' ? result.reply : undefined,
+  );
+
   // Still record the run even if the client disconnected mid-stream — the
   // trace is useful for debugging regardless of whether anyone saw it live.
-  await executionService.recordExecution(agent.id, parsed.data.message, result);
+  await executionService.recordExecution(agent.id, parsed.data.message, result, conversationId);
 
   res.end();
 }

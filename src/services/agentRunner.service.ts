@@ -16,6 +16,8 @@ function withTimeout<T>(promise: Promise<T>, ms: number, toolName: string): Prom
 }
 
 export interface RunAgentOptions {
+  /** Prior turns of this conversation, oldest first — prepended before the new user message. */
+  history?: { role: 'user' | 'assistant'; content: string }[];
   /** Called for every step of the loop — used to stream progress over SSE. */
   onEvent?: (event: AgentEvent) => void;
   /** Lets an SSE client disconnect actually cancel the in-flight OpenAI call. */
@@ -34,6 +36,9 @@ export async function runAgent(
 
   const messages: ChatCompletionMessageParam[] = [
     { role: 'system', content: agent.instructions },
+    ...(options.history ?? []).map(
+      (turn): ChatCompletionMessageParam => ({ role: turn.role, content: turn.content }),
+    ),
     { role: 'user', content: userMessage },
   ];
 

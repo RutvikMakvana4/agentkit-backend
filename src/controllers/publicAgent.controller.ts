@@ -4,6 +4,7 @@ import { ApiResponse } from '../utils/ApiResponse.js';
 import * as agentService from '../services/agent.service.js';
 import { runAgent } from '../services/agentRunner.service.js';
 import * as executionService from '../services/execution.service.js';
+import * as conversationService from '../services/conversation.service.js';
 import { chatSchema } from '../validators/agent.validator.js';
 
 export async function runAgentPublic(req: Request, res: Response) {
@@ -28,8 +29,25 @@ export async function runAgentPublic(req: Request, res: Response) {
     throw ApiError.forbidden('This agent is deactivated');
   }
 
-  const result = await runAgent(agent, parsed.data.message);
-  const execution = await executionService.recordExecution(agent.id, parsed.data.message, result);
+  const conversationId = await conversationService.ensureConversation(
+    agent.id,
+    parsed.data.conversationId,
+  );
+  const history = await conversationService.getConversationHistory(conversationId);
+
+  const result = await runAgent(agent, parsed.data.message, { history });
+
+  await conversationService.appendTurn(
+    conversationId,
+    parsed.data.message,
+    result.status === 'success' ? result.reply : undefined,
+  );
+  const execution = await executionService.recordExecution(
+    agent.id,
+    parsed.data.message,
+    result,
+    conversationId,
+  );
 
   if (result.status === 'error') {
     throw ApiError.internal(result.error ?? 'Agent run failed');

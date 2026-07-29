@@ -72,6 +72,7 @@ export interface Execution {
   id: string;
   agentId: string;
   agentName: string;
+  conversationId?: string;
   status: ExecutionStatus;
   input: string;
   output?: string;
