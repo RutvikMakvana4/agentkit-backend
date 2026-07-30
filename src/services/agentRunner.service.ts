@@ -2,6 +2,9 @@ import type { ChatCompletionMessageParam } from 'openai/resources/chat/completio
 import { env } from '../config/env.js';
 import { callLlm } from './llm.service.js';
 import { toolRegistry } from '../tools/index.js';
+import { getLatestProject } from './project.service.js';
+import { listToolsForProject } from './tool.service.js';
+import { executeRemoteTool } from './remoteToolExecutor.service.js';
 import type { Agent, AgentEvent, AgentRunResult, ToolCallTrace } from '../types/agent.types.js';
 
 const MAX_AGENT_ITERATIONS = env.MAX_AGENT_ITERATIONS;
@@ -32,7 +35,22 @@ export async function runAgent(
   const emit = options.onEvent ?? (() => {});
   const start = Date.now();
   const toolNames = agent.tools.map((t) => t.toolName);
-  const openAiTools = toolRegistry.toOpenAITools(toolNames);
+
+  // §15.4 — tool execution branches on whether a tool is one of the four
+  // built-in demo tools (in-process, unchanged) or a project tool
+  // registered by the SDK (routed through the remote executor below).
+  const project = await getLatestProject();
+  const projectTools = project ? await listToolsForProject(project.id) : [];
+  const remoteToolByName = new Map(
+    projectTools.filter((t) => t.enabled && toolNames.includes(t.name)).map((t) => [t.name, t]),
+  );
+
+  const demoOpenAiTools = toolRegistry.toOpenAITools(toolNames);
+  const remoteOpenAiTools = [...remoteToolByName.values()].map((tool) => ({
+    type: 'function' as const,
+    function: { name: tool.name, description: tool.description, parameters: tool.inputSchema },
+  }));
+  const openAiTools = [...demoOpenAiTools, ...remoteOpenAiTools];
 
   const messages: ChatCompletionMessageParam[] = [
     { role: 'system', content: agent.instructions },
@@ -140,8 +158,13 @@ export async function runAgent(
       const callStart = Date.now();
 
       try {
+        const isRemoteTool = remoteToolByName.has(call.name);
+        const executePromise = isRemoteTool
+          ? executeRemoteTool(project!.id, call.name, call.arguments)
+          : toolRegistry.execute(call.name, call.arguments);
+
         const toolResult = await withTimeout(
-          toolRegistry.execute(call.name, call.arguments),
+          executePromise,
           env.TOOL_EXECUTION_TIMEOUT_MS,
           call.name,
         );

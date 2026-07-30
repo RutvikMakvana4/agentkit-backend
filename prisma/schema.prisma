@@ -28,6 +28,56 @@ enum MessageRole {
   assistant
 }
 
+enum ConnectionStatus {
+  connected
+  stale
+  disconnected
+}
+
+// NEW (v2.1, §16) — represents one connected external backend (an
+// @agentkit/node process). Issued a projectKey at creation, same
+// hash-once pattern as ApiKey.hashedKey.
+model Project {
+  id          String           @id @default(cuid())
+  name        String
+  projectKey  String           @unique
+  framework   String?
+  nodeVersion String?
+  sdkVersion  String?
+  status      ConnectionStatus @default(disconnected)
+  lastSeenAt  DateTime?
+
+  tools Tool[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("projects")
+}
+
+// NEW (v2.1, §16) — replaces the code-only tool registry with a real row
+// per SDK-registered tool. Rows are only ever written by the WS gateway's
+// register_tool message (§15) — there is no manual-create REST route,
+// intentionally (§10.3).
+model Tool {
+  id        String  @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  name          String
+  description   String
+  inputSchema   Json
+  outputExample Json?
+  enabled       Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([projectId, name])
+  @@index([projectId])
+  @@map("tools")
+}
+
 // Scoped intentionally to just what agent.service.ts needs today.
 // Tool models get their own schema additions (and their own migrations)
 // when we build that feature.

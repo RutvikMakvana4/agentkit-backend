@@ -2,12 +2,17 @@ import app from './app.js';
 import { env } from './config/env.js';
 import { logger } from './utils/logger.js';
 import { prisma } from './config/prisma.js';
+import { attachSdkGateway } from './ws/sdkGateway.js';
 
 const server = app.listen(env.PORT, () => {
   logger.info(`🚀 Server running on http://localhost:${env.PORT}`, {
     env: env.NODE_ENV,
   });
 });
+
+// SDK connections (§15) share the same HTTP server/port via a WS upgrade
+// at /ws/sdk — no separate port or process needed.
+attachSdkGateway(server);
 
 function shutdown(signal: string) {
   logger.info(`${signal} received. Shutting down gracefully...`);
