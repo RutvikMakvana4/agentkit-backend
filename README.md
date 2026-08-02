@@ -80,7 +80,9 @@ full prior-turn context.
 
 See `.env.example`. Two connection strings are required for Supabase:
 `DATABASE_URL` (pooled, port 6543 — used by the running app) and
-`DIRECT_URL` (direct, port 5432 — used only by Prisma migrations).
+`DIRECT_URL` (a migration-capable connection, port 5432). In production, run
+`npm run db:deploy && npm start`; `db:deploy` temporarily uses `DIRECT_URL`
+for Prisma migrations and leaves the app on `DATABASE_URL`.
 
 ## Known limitations
 
