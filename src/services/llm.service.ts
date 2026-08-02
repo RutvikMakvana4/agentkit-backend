@@ -2,7 +2,10 @@ import OpenAI from 'openai';
 import type { ChatCompletionMessageParam, ChatCompletionTool } from 'openai/resources/chat/completions';
 import { env } from '../config/env.js';
 
-const client = new OpenAI({ apiKey: env.OPENAI_API_KEY });
+const client = new OpenAI({
+  apiKey: env.LLM_API_KEY ?? env.OPENAI_API_KEY,
+  ...(env.LLM_BASE_URL ? { baseURL: env.LLM_BASE_URL } : {}),
+});
 
 export interface LlmCallInput {
   model: string;

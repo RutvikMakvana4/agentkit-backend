@@ -86,7 +86,9 @@ export async function runAgent(
     let result;
     try {
       result = await callLlm({
-        model: agent.model,
+        // Lets an operator move all existing agents to another provider/model
+        // without rewriting every row in the database.
+        model: env.LLM_MODEL_OVERRIDE ?? agent.model,
         temperature: agent.temperature,
         messages,
         tools: openAiTools,

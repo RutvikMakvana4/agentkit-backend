@@ -8,7 +8,13 @@ const envSchema = z.object({
   PORT: z.coerce.number().default(5000),
   CORS_ORIGIN: z.string().default('*'),
   FRONTEND_URL: z.string().default('http://localhost:3000'),
-  OPENAI_API_KEY: z.string().min(1, 'OPENAI_API_KEY is required'),
+  // LLM_API_KEY and LLM_BASE_URL let the OpenAI-compatible SDK talk to
+  // providers such as OpenRouter. OPENAI_API_KEY remains supported for
+  // existing OpenAI deployments.
+  LLM_API_KEY: z.string().min(1).optional(),
+  LLM_BASE_URL: z.url().optional(),
+  LLM_MODEL_OVERRIDE: z.string().min(1).optional(),
+  OPENAI_API_KEY: z.string().min(1).optional(),
   MAX_AGENT_ITERATIONS: z.coerce.number().default(10),
   // Pooled connection (Supabase Supavisor, port 6543) — used by the running
   // app for normal queries.
@@ -24,7 +30,12 @@ const envSchema = z.object({
   TOOL_EXECUTION_TIMEOUT_MS: z.coerce.number().default(10_000),
 });
 
-const parsed = envSchema.safeParse(process.env);
+const parsed = envSchema
+  .refine((value) => Boolean(value.LLM_API_KEY ?? value.OPENAI_API_KEY), {
+    message: 'Set LLM_API_KEY (or OPENAI_API_KEY for the OpenAI provider)',
+    path: ['LLM_API_KEY'],
+  })
+  .safeParse(process.env);
 
 if (!parsed.success) {
   console.error('❌ Invalid environment variables:');

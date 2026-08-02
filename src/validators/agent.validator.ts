@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { env } from '../config/env.js';
 
 const agentToolSchema = z.object({
   toolId: z.string().min(1),
@@ -20,7 +21,7 @@ const agentFields = {
 
 export const createAgentSchema = z.object(agentFields).extend({
   description: agentFields.description.default(''),
-  model: agentFields.model.default('gpt-4.1-mini'),
+  model: agentFields.model.default(env.LLM_MODEL_OVERRIDE ?? 'gpt-4.1-mini'),
   temperature: agentFields.temperature.default(0.3),
   status: agentFields.status.optional(),
   tools: agentFields.tools.default([]),

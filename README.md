@@ -22,6 +22,22 @@ npm run db:seed        # seeds the "Customer Support Agent" (PRD's first agent)
 npm run start:dev      # http://localhost:5000
 ```
 
+### Free-model demo setup
+
+The OpenAI API does not provide free hosted inference. To use a free,
+OpenAI-compatible provider for demos, create an OpenRouter API key and set the
+following environment variables (locally and in Render):
+
+```sh
+LLM_API_KEY=your-openrouter-api-key
+LLM_BASE_URL=https://openrouter.ai/api/v1
+LLM_MODEL_OVERRIDE=openrouter/free
+```
+
+`LLM_MODEL_OVERRIDE` applies to existing agents too, so their saved OpenAI
+model names cannot result in paid OpenAI requests. Free-model availability and
+request limits are controlled by the provider.
+
 ## Architecture
 
 ```
